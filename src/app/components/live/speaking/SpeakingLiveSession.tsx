@@ -28,7 +28,7 @@ export function SpeakingLiveSession({ config, onComplete }: Props) {
   const apiKey = import.meta.env.VITE_CONVAI_API_KEY;
   const characterId = import.meta.env.VITE_CONVAI_CHARACTER_ID;
   const xpid = import.meta.env.VITE_CONVAI_XPID;
-
+   console.log("MY DEBUG ID:", xpid);
   // إعداد Convai Client فقط لاستلام النصوص (Transcript)
   useEffect(() => {
     if (!apiKey || !characterId) return;
