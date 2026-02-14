@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 
 // Context & Layout
 import { LanguageProvider } from './context/LanguageContext';
@@ -34,7 +34,7 @@ export default function App() {
 
   return (
     <LanguageProvider>
-      <BrowserRouter>
+      <HashRouter>
         <div className="min-h-screen bg-background flex flex-col">
           
           <Header 
@@ -82,7 +82,7 @@ export default function App() {
           
           <Footer isLoggedIn={isLoggedIn} />
         </div>
-      </BrowserRouter>
+      </HashRouter>
     </LanguageProvider>
   );
 }
