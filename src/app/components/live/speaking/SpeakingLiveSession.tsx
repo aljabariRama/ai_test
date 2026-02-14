@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-// ✅ استيراد المكون الجديد
+// استيراد المكون الجديد والمقابض (Handles) للتحكم فيه
 import { PixelStreamComponent, PixelStreamComponentHandles } from '@convai/experience-embed';
 import { ConvaiClient } from "convai-web-sdk";
-import { Card } from "../../ui/card";
+import { Card } from "../../ui/card"; // تأكد من صحة المسار حسب مشروعك
 import { Button } from "../../ui/button";
 import { Progress } from "../../ui/progress";
 import type { SessionConfig, SessionResult, Turn } from "../../LivePractice";
@@ -13,10 +13,10 @@ interface Props {
 }
 
 export function SpeakingLiveSession({ config, onComplete }: Props) {
-  // ✅ Ref للتحكم في مكون الـ Pixel Streaming
+  // ✅ Ref للتحكم في مكون الـ Pixel Streaming وبدء التجربة
   const pixelStreamRef = useRef<PixelStreamComponentHandles>(null);
   
-  // Ref للعميل القديم (للحصول على النصوص فقط)
+  // Ref للعميل الخاص بالنصوص فقط
   const clientRef = useRef<any>(null);
 
   const [turns, setTurns] = useState<Turn[]>([]);
@@ -24,20 +24,44 @@ export function SpeakingLiveSession({ config, onComplete }: Props) {
   const [npcText, setNpcText] = useState("");
   const [userText, setUserText] = useState("");
 
-  // البيئة
+  // المتغيرات من البيئة (تأكدي من وجود VITE_ في البداية دائماً)
   const apiKey = import.meta.env.VITE_CONVAI_API_KEY;
   const characterId = import.meta.env.VITE_CONVAI_CHARACTER_ID;
   const xpid = import.meta.env.VITE_CONVAI_XPID;
-   console.log("MY DEBUG ID:", xpid);
-  // إعداد Convai Client فقط لاستلام النصوص (Transcript)
+
+  // 1. تفعيل التجربة (Initialize) فور جاهزية المكون
+  useEffect(() => {
+    const startExperience = async () => {
+      if (pixelStreamRef.current) {
+        try {
+          console.log("Attempting to initialize experience...");
+          await pixelStreamRef.current.initializeExperience();
+          console.log("Experience initialized successfully!");
+        } catch (error) {
+          console.error("Error initializing Convai experience:", error);
+        }
+      }
+    };
+
+    // ننتظر قليلاً لضمان تحميل الـ DOM
+    const timer = setTimeout(startExperience, 1000);
+    return () => clearTimeout(timer);
+  }, [xpid]);
+
+  // 2. إعداد Convai Client لاستقبال النصوص (Transcripts)
   useEffect(() => {
     if (!apiKey || !characterId) return;
 
-    const client = new ConvaiClient({ apiKey, characterId, enableAudio: false }); // نوقف الصوت هنا لنعتمد على الستريم
+    const client = new ConvaiClient({ 
+      apiKey, 
+      characterId, 
+      enableAudio: false // الصوت سيأتي من الـ Pixel Streaming وليس من هنا
+    }); 
+    
     clientRef.current = client;
 
     client.setResponseCallback((res: any) => {
-      // استلام نص المستخدم
+      // نصوص المستخدم
       if (res?.hasUserQuery?.()) {
         const text = res.getUserQuery().getTextData();
         if (text) setUserText(text);
@@ -45,14 +69,13 @@ export function SpeakingLiveSession({ config, onComplete }: Props) {
           setTurns(prev => [...prev, { id: Date.now().toString(), who: "user", text, ts: Date.now() }]);
         }
       }
-      // استلام نص الافتار
+      // نصوص الافتار
       if (res?.hasAudioResponse?.()) {
         const text = res.getAudioResponse().getTextData();
         if (text) setNpcText(prev => prev + " " + text);
       }
     });
 
-    // عند انتهاء الافتار من الكلام (من خلال العميل)
     client.onAudioStop?.(() => {
       if (npcText.trim()) {
         setTurns(prev => [...prev, { id: Date.now().toString(), who: "npc", text: npcText, ts: Date.now() }]);
@@ -64,16 +87,11 @@ export function SpeakingLiveSession({ config, onComplete }: Props) {
     return () => {
       try { clientRef.current?.resetSession?.(); } catch (e) {}
     };
-  }, []);
+  }, [apiKey, characterId, npcText]);
 
-  // دوال التحكم (اختيارية حسب الحاجة)
-  const enableCam = async () => {
-     await pixelStreamRef.current?.enableCamera();
-  };
-  
-  const disableCam = async () => {
-     await pixelStreamRef.current?.disableCamera();
-  };
+  // دوال التحكم
+  const enableCam = async () => await pixelStreamRef.current?.enableCamera();
+  const disableCam = async () => await pixelStreamRef.current?.disableCamera();
 
   const handleEnd = () => {
     const result: SessionResult = {
@@ -90,16 +108,17 @@ export function SpeakingLiveSession({ config, onComplete }: Props) {
 
   return (
     <div className="space-y-4 max-w-4xl mx-auto">
-      {/* منطقة الفيديو الجديدة باستخدام PixelStreamComponent */}
       <Card className="overflow-hidden bg-black relative aspect-video rounded-xl border border-gray-800 shadow-2xl">
         {xpid ? (
           <PixelStreamComponent
             ref={pixelStreamRef}
             expId={xpid}
+            // @ts-ignore - أحياناً المكون يتطلب تحديد النوع إذا كانت التجربة عامة
+            type="public" 
             InitialScreen={
               <div className="w-full h-full flex flex-col items-center justify-center text-white bg-slate-900">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mb-4"></div>
-                <p>Loading Experience...</p>
+                <p className="mt-2">Connecting to Real Estate Stream...</p>
               </div>
             }
           />
@@ -110,7 +129,6 @@ export function SpeakingLiveSession({ config, onComplete }: Props) {
         )}
       </Card>
 
-      {/* أزرار التحكم */}
       <div className="flex flex-wrap gap-4 justify-between">
         <div className="flex gap-2">
             <Button variant="secondary" onClick={enableCam}>Enable Camera</Button>
@@ -121,7 +139,6 @@ export function SpeakingLiveSession({ config, onComplete }: Props) {
         </Button>
       </div>
 
-      {/* النصوص الحية (Transcript) */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm mt-4">
         <div className="p-4 bg-white border rounded-lg shadow-sm min-h-[80px]">
           <span className="text-xs font-bold text-gray-400 uppercase mb-1 block">You Said</span>
