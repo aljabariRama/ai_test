@@ -6,14 +6,16 @@ export type QuestionType = "fill-blank" | "mcq" | "drag-drop";
 
 export interface SessionConfig {
   skill: SkillType;
-  level: Level;
+  level: Level;                 // current
   numberOfQuestions: number;
   topics: string[];
-  // حقول خاصة بالـ Speaking
-  studentName?: string;
+
+  // speaking
+  userName?: string;
   targetBand?: number;
+  targetBandOrLevel?: string;
+  studentInfo?: string;
   userProfileText?: string;
-  questionType?: QuestionType; // لباقي المهارات
 }
 
 export interface Turn {
